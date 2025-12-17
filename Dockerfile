@@ -1,36 +1,28 @@
-# Stage 1: Build
-FROM gradle:8.5-jdk21 AS build
-WORKDIR /app
+# Stage 1: Cache Gradle dependencies
+FROM gradle:latest AS cache
+RUN mkdir -p /home/gradle/cache_home
+ENV GRADLE_USER_HOME=/home/gradle/cache_home
+COPY build.gradle.* gradle.properties /home/gradle/app/
+COPY gradle /home/gradle/app/gradle
+WORKDIR /home/gradle/app
+RUN gradle clean build -i --stacktrace
 
-# Copier les fichiers de configuration Gradle
-COPY build.gradle.kts settings.gradle.kts gradle.properties ./
-COPY gradle ./gradle
-
-# Télécharger les dépendances (cache layer)
-RUN gradle dependencies --no-daemon
-
-# Copier le code source
-COPY src ./src
-
-# Build du fat JAR
+# Stage 2: Build Application
+FROM gradle:latest AS build
+COPY --from=cache /home/gradle/cache_home /home/gradle/.gradle
+COPY --chown=gradle:gradle . /home/gradle/src
+WORKDIR /home/gradle/src
+# Build the fat JAR, Gradle also supports shadow
+# and boot JAR by default.
 RUN gradle buildFatJar --no-daemon
 
-# Stage 2: Runtime
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-
-# Créer un utilisateur non-root
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Copier le JAR depuis le stage de build
-COPY --from=build /app/build/libs/*-all.jar app.jar
-
-# Changer le propriétaire
-RUN chown -R appuser:appgroup /app
-USER appuser
-
-# Port exposé (ajuster selon votre config)
+# Stage 3: Create the Runtime Image
+FROM amazoncorretto:22 AS runtime
 EXPOSE 8080
-
+RUN mkdir /app
+COPY --from=build /home/gradle/src/build/libs/*.jar /app/app.jar
 # Lancer l'application
 ENTRYPOINT ["java", "-jar", "app.jar"]
+# Copier le JAR depuis le stage de build
+
+
