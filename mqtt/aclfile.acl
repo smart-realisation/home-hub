@@ -1,0 +1,4 @@
+# Tous les clients peuvent lire/écrire sur ces topics
+topic readwrite capteurs/temperature
+topic readwrite capteurs/humidite
+topic readwrite capteurs/gaz

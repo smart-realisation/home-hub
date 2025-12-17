@@ -1,0 +1,8 @@
+.git
+.gitignore
+.gradle
+.idea
+.kotlin
+build
+*.md
+*.log
